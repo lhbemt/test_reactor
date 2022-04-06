@@ -20,7 +20,7 @@ namespace lemt {
     }
 
     void ClientSocket::handle_read() {
-        int n = recv(fd, &recv_buf[0], buff_size, 0);
+        int n = recv(fd, &recv_buf[0], buff_size, 0); // 这里会出现信号11 导致core dump，这个是recv_buf的原因
         if (n == -1) {
             if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) // try agin
                 return;

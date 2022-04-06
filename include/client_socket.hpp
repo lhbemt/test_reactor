@@ -3,6 +3,7 @@
 
 #include "utility.hpp"
 #include <array>
+#include <unistd.h>
 
 namespace lemt {
     class ClientSocket {
@@ -10,6 +11,9 @@ namespace lemt {
         ClientSocket(int fd, int idx) : fd(fd), reactor_idx(idx) {}
         ClientSocket(const ClientSocket&) = delete;
         ClientSocket& operator=(const ClientSocket&) = delete;
+        ~ClientSocket() {
+            close(fd);
+        }
 
         void handle(poll_event events); // 处理socket数据
 
