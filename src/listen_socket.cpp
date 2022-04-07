@@ -37,7 +37,7 @@ namespace lemt {
             close(lfd);
             throw SocketException(std::error_code(errno, std::system_category()));
         }
-        ret = listen(lfd, 5);
+        ret = listen(lfd, 512);
         if (ret == -1) {
             close(lfd);
             throw SocketException(std::error_code(errno, std::system_category()));

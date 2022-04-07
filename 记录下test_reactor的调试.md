@@ -374,7 +374,26 @@ stopfd已经发出，但是此时线程已经结束了，看下Reactor的析构�
         }
         return ec;
     }
+## accept数量不够问题--listen的第二个参数
+我一开始设置的listen的第二个参数是5，然后客户端一次进行几百个连接的时候，发现accept的数量总是会少一些，于是我就看了下listen函数，它是这样描述的，
+为了更好的理解backlog参数，我们必须认识到内核为任何一个给定的监听套接口维护两个队列：
+1、未完成连接队列（incomplete connection queue），每个这样的SYN分节对应其中一项：已由某个客户发出并到达服务器，而服务器正在等待完成相应的TCP三路握手过程。这些套接口处于SYN_RCVD状态。
+2、已完成连接队列（completed connection queue），每个已完成TCP三路握手过程的客户对应其中一项。这些套接口处于ESTABLISHED状态。
+当来自客户的SYN到达时，TCP在未完成连接队列中创建一个新项，然后响应以三路握手的第二个分节：服务器的SYN响应，其中稍带对客户SYN的ACK（即SYN+ACK）。这一项一直保留在未完成连接队列中，直到三路握手的第三个分节（客户对服务器SYN的ACK）到达或者该项超时为止（曾经源自Berkeley的实现为这些未完成连接的项设置的超时值为75秒）。如果三路握手正常完成，该项就从未完成连接队列移到已完成连接队列的队尾。当进程调用accept时，已完成连接队列中的队头项将返回给进程，或者如果该队列为空，那么进程将被投入睡眠，直到TCP在该队列中放入一项才唤醒它。
+而在man函数中：
+“backlog参数确定了connection队列可以增长的最大长度”，如果connection队列已满（达到backlog确定的长度），那么新的connection请求到来时，客户端会得到一个ECONNREFUSED error，或者，如果底层协议支持重发，那么这个请求会被服务器忽略而使客户端重新发送connection请求。现在backlog用来确定已完成队列（完成三次握手等待accept）的长度，而不再是已完成队列和未完成连接队列之和（linux 2.2之前）。
+未完成队列（incomplete connection queue）的长度现在由/proc/sys/net/ipv4/tcp_max_syn_backlog设置，在现在大多数最新linux内核都是默认512。
+继续看backlog，如果我们给listen的backlog参数设值超过了/proc/sys/net/core/somaxconn，那么backlog参数的值为自动被改写为/proc/sys/net/core/somaxconn的值，它的默认大小为128.
+所以我把listen函数的第二个参数改为了512。此时，所有accept的次数就对了。可以看到，都打满了。
 
+	[li@localhost build]$ ./client 1 1000
+	connect_count: 1000
+	done!
+	accept: 996
+	accept: 997
+	accept: 998
+	accept: 999
+	accept: 1000
 
 
 

@@ -36,7 +36,6 @@ namespace lemt {
 
     protected:
         virtual void dispatch(epoll_event& ev) override {
-            std::cout << "dispatch: " << ev.data.fd << std::endl;
             auto ptr = clients[ev.data.fd];
             if (ptr) {
                 ptr->handle(ev.events);
