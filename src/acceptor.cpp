@@ -2,10 +2,11 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include "reactor_mgr.hpp"
+#include <iostream>
 
 namespace lemt {
 
-    Acceptor::Acceptor() {
+    Acceptor::Acceptor() : count(0) {
         lfd = lsocket.get_fd();
     }
 
@@ -19,6 +20,7 @@ namespace lemt {
             return;
         }
         // client_fd分到subreactor里
+        std::cout << "accept: " << ++count << std::endl;
         ReactorMgr::get_instance()->register_sub_reactor(client_fd, EPOLLIN);
     }
 }

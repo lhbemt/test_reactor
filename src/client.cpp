@@ -45,11 +45,11 @@ void do_thread(int client_num) {
     fd_set set;
     FD_ZERO(&set);
     int connect_cout = 0;
-    int maxfd = 0;
-    std::vector<int> client_fds;
+    unsigned maxfd = 0;
+    std::vector<unsigned> client_fds;
     client_fds.reserve(client_num);
     for (int i = 0; i < client_num; ++i) {
-        int clientfd = socket(AF_INET, SOCK_STREAM, 0);
+        unsigned clientfd = socket(AF_INET, SOCK_STREAM, 0);
         std::error_code ec = lemt::set_nonblocking(clientfd);
         if (ec.value() != 0) {
             std::cout << "socket error: " << ec.message() << std::endl;
@@ -84,12 +84,13 @@ void do_thread(int client_num) {
             std::cout << "select erro: " << std::endl;
             return;
         }
-        for (int fd = 0; fd < maxfd + 1; ++fd) {
+        for (unsigned fd = 0; fd < maxfd + 1; ++fd) {
             if (FD_ISSET(fd, &set)) { // 也许成功了 用getsockopt 判断
-                err = 0;
+                err = -1;
                 socklen_t len = sizeof(err);
                 auto iter = std::find(client_fds.begin(), client_fds.end(), fd);
-                client_fds.erase(iter);
+                if (iter != client_fds.end())
+                    client_fds.erase(iter);
                 if(getsockopt(fd, SOL_SOCKET, SO_ERROR, &err, &len) < 0) { // 连接建立失败
                     std::cout << " getsockopt error: " << errno << std::endl;
                     close(fd);
@@ -98,6 +99,7 @@ void do_thread(int client_num) {
                 else {
                     if (err != 0) { // 失败
                         std::cout << " getsockopt connect error: " << errno << std::endl;
+                        close(fd);
                         continue;
                     }
                     handle_client(fd);
@@ -107,9 +109,10 @@ void do_thread(int client_num) {
         }
         FD_ZERO(&set);
         maxfd = 0;
-        for (auto& left : client_fds) {
-            maxfd = left > maxfd ? left : maxfd;
-            FD_SET(left, &set);
+        for (auto iter = client_fds.begin(); iter != client_fds.end(); ++iter) {
+            maxfd = *iter > maxfd ? *iter : maxfd;
+            if (*iter)
+                FD_SET(*iter, &set);
         }
     }
 
@@ -124,7 +127,8 @@ void handle_client(int fd) {
             return;
         }
         if (n == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            std::cout << "send again " << errno << std::endl;
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
             continue;
         } 
         else {

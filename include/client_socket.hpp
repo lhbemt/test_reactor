@@ -4,6 +4,7 @@
 #include "utility.hpp"
 #include <array>
 #include <unistd.h>
+#include <iostream>
 
 namespace lemt {
     class ClientSocket {

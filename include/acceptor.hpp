@@ -17,6 +17,7 @@ namespace lemt {
         int lfd;
     private:
         ListenSocket lsocket;
+        int count;
     };
 }
 

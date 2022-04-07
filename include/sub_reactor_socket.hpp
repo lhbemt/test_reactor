@@ -21,10 +21,14 @@ namespace lemt {
             if (ec.value() == 0){
                 clients.insert(std::make_pair(fd, std::make_shared<ClientSocket>(fd, idx))); // 这里可以使用mialloc等优化内存的第三方内存分配库
             }
+            else { // 注册失败 关闭socket并取消注册
+                unregister_fd(fd);
+                close(fd);
+            }
             return ec;
         }
 
-        std::error_code unregister_sub_reactor(int fd) {
+        std::error_code unregister_fd(int fd) {
             std::error_code ec = Reactor::unregister_fd(fd);
             clients.erase(fd);
             return ec;
@@ -32,7 +36,11 @@ namespace lemt {
 
     protected:
         virtual void dispatch(epoll_event& ev) override {
-            clients[ev.data.fd]->handle(ev.events);
+            std::cout << "dispatch: " << ev.data.fd << std::endl;
+            auto ptr = clients[ev.data.fd];
+            if (ptr) {
+                ptr->handle(ev.events);
+            }
         }
 
     private:

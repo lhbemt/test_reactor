@@ -359,20 +359,21 @@ stopfd已经发出，但是此时线程已经结束了，看下Reactor的析构�
 	stop reactor: 11
 	reactor stop end
 至于为啥gdb的时候，不会出现这种情况，等待大神来解答下。。
-## 超多连接
-当我的虚拟机使用./client 2 1000表示建立2000个连接时，首先client就炸了。
+## 一个巨坑
+出现了一次Program terminated with signal 11, Segmentation fault的dump，这个原因是因为我的clients是std::map，而用[]取值的时候，如果key不存在，std::map会给你一个默认的值，这导致了我的client是nullptr，在handle的时候，直接炸了。
+还有出现错误要去处理，下面这段代码之前我没去取消注册，导致clients里面找不到fd，直接内存错误的coredump。
 
-	socket error: Bad file descriptor
-	unkown error 9
-超过了最大连接数1024。
-服务器也是：
-
-	[li@localhost ~]$ top|grep test_reactor
-	test_reactor                                                                                                                                                    68541 li        20   0  178848   4564   1168 S  99.7  0.2   1:43.77
-	test_reactor                                                                                                                                                   68541 li        20   0  178848   4564   1168 S  99.7  0.2   1:46.77
-	test_reactor                                                                                                                                                    68541 li        20   0  178848   4564   1168 S 100.0  0.2   1:49.77
-	test_reactor                                                                                                                                                    68541 li        20   0  178848   4564   1168 S  99.0  0.2   1:52.75 test_reactor
-可以看到服务器的cpu高居不下。此时就需要用gdb attach去查看阻塞在哪里。先留着。
+	std::error_code register_fd(int fd, poll_event poll_events) {
+        std::error_code ec = Reactor::register_fd(fd, poll_events);
+        if (ec.value() == 0){
+            clients.insert(std::make_pair(fd, std::make_shared<ClientSocket>(fd, idx))); // 这里可以使用mialloc等优化内存的第三方内存分配库
+        }
+        else { // 注册失败 关闭socket并取消注册 不然epoll_wait会返回导致 clients取到的fd的value是nullptr，炸了
+            unregister_fd(fd);
+            close(fd);
+        }
+        return ec;
+    }
 
 
 

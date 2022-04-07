@@ -22,8 +22,10 @@ namespace lemt {
     void ClientSocket::handle_read() {
         int n = recv(fd, &recv_buf[0], buff_size, 0); // 这里会出现信号11 导致core dump，这个是recv_buf的原因
         if (n == -1) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) // try agin
+            if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) { // try agin
+                std::cout << fd << " recv ewould_block: " << errno << std::endl;
                 return;
+            }
             else { // 错误
                 std::cout << fd << " recv error: " << errno << std::endl;
                 ReactorMgr::get_instance()->unregister_sub_reactor(reactor_idx, fd);
@@ -34,8 +36,9 @@ namespace lemt {
             ReactorMgr::get_instance()->unregister_sub_reactor(reactor_idx, fd);
             return;
         }
-        std::cout << fd << " recv: " << n << " " << &recv_buf[0] << std::endl;
+//        std::cout << fd << " recv: " << n << " " << &recv_buf[0] << std::endl;
         std::memcpy(&send_buf[0], &recv_buf[0], n);
+        std::memset(&recv_buf[0], 0, buff_size);
         handle_send();
     }
 
